@@ -1,2 +1,0 @@
-model_checkpoint_path: "moon_regression.ckpt"
-all_model_checkpoint_paths: "moon_regression.ckpt"
