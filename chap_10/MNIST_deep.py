@@ -1,6 +1,7 @@
 #!/usr/local/bin//python3
 
 import os
+import sys
 from datetime import datetime
 import numpy as np
 import tensorflow as tf
@@ -42,12 +43,12 @@ if __name__ == "__main__":
     # parameters
     reset_graph()
     n_inputs = 28*28
-    n_hidden1 = 400
-    n_hidden2 = 150
+    n_hidden1 = 300
+    n_hidden2 = 100
     n_outputs = 10
-    learning_rate = 0.005
-    n_epochs = 100
-    batch_size = 10
+    learning_rate = 0.01
+    n_epochs = 20
+    batch_size = 64
 
     X = tf.placeholder(tf.float32, shape=(None, n_inputs), name="X")
     y = tf.placeholder(tf.int64, shape=(None), name="y")
@@ -71,7 +72,8 @@ if __name__ == "__main__":
 
     # optimizer
     with tf.name_scope("train"):
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=0.9,
+                                               use_nesterov=True)
         training_op = optimizer.minimize(loss)
 
     # evaluation metric
@@ -97,9 +99,10 @@ if __name__ == "__main__":
     y_valid = mnist.validation.labels  # 5000 digits
 
     # logging
-    logdir = log_dir("mnist_dnn")
+    run_description = sys.argv[1]
+    logdir = log_dir("mnist_dnn_" + run_description)
     file_writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
-    checkpoint_path = "/tmp/my_deep_mnist_model.ckpt"
+    checkpoint_path = "./tmp/my_deep_mnist_model.ckpt"
     checkpoint_epoch_path = checkpoint_path + ".epoch"
     final_model_path = "./my_deep_mnist_model"
 
@@ -145,7 +148,7 @@ if __name__ == "__main__":
                 saver.save(sess, final_model_path)
                 best_loss = loss_val
             else:
-                epochs_without_progress += 5
+                epochs_without_progress += 1
                 if epochs_without_progress > max_epochs_without_progress:
                     print("Early stopping")
                     break
