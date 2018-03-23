@@ -91,11 +91,11 @@ if __name__ == "__main__":
 
         # creates 2 7*7 feature maps with 2*2 strides
         conv1 = tf.layers.conv2d(
-            X, filters=10, kernel_size=7, strides=(1, 1), padding="SAME",
+            X, filters=100, kernel_size=7, strides=(1, 1), padding="SAME",
             activation=tf.nn.relu, name="conv1")
         print("conv1 format: {}".format(conv1.get_shape()))
         conv2 = tf.layers.conv2d(
-            conv1, filters=10, kernel_size=7, strides=(1, 1), padding="SAME",
+            conv1, filters=100, kernel_size=7, strides=(1, 1), padding="SAME",
             activation=tf.nn.relu, name="conv2")
         print("conv2 format: {}".format(conv2.get_shape()))
 
@@ -105,10 +105,7 @@ if __name__ == "__main__":
             conv2_r, n_hidden, name="hidden2")
         hidden2_drop = my_dropout_layer(hidden2)
         bn2 = tf.nn.elu(my_batch_norm_layer(hidden2_drop))
-        hidden3 = my_dense_layer(bn2, n_hidden, name="hidden3")
-        hidden3_drop = my_dropout_layer(hidden3)
-        bn3 = tf.nn.elu(my_batch_norm_layer(hidden3_drop))
-        logits_before_bn = my_dense_layer(bn3, n_outputs, name="outputs")
+        logits_before_bn = my_dense_layer(bn2, n_outputs, name="outputs")
         logits = my_batch_norm_layer(logits_before_bn)
         # not softmax for optimization
 
