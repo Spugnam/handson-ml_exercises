@@ -55,8 +55,8 @@ Number of parameters in convolution layer l:
         + 1 for bias )
         * number of feature maps in layer l
 
-output dimension:
-    (input_w / stride_w) * (input_h / stride_h) * num feature map
+Convolutional layer output shape:
+    (batch_size, input_w / stride_w, input_h / stride_h, num filters)
 """
 
 ##################

@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+import json
 from datetime import datetime
 from functools import partial
 import numpy as np
@@ -14,20 +16,6 @@ def reset_graph(seed=42):
     np.random.seed(seed)
 
 
-def neuron_layer(input_layer, n_neurons, name, activation=None):
-    with tf.name_scope(name):
-        n_inputs = int(input_layer.get_shape()[1])
-        stddev = 2 / np.sqrt(n_inputs)  # helps convergence
-        init = tf.truncated_normal((n_inputs, n_neurons), stddev=stddev)
-        W = tf.Variable(init, name="kernel")
-        b = tf.Variable(tf.zeros([n_neurons]), name="bias")
-        Z = tf.matmul(input_layer, W) + b
-        if activation is not None:
-            return activation(Z)
-        else:
-            return Z
-
-
 def fetch_batch(X, y, batch_size=100):
     n = X.shape[0]
     indices = np.random.randint(n, size=batch_size)
@@ -36,13 +24,13 @@ def fetch_batch(X, y, batch_size=100):
     return X_batch, y_batch
 
 
-def log_dir(prefix=""):
-    now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    root_logdir = "tf_logs"
-    if prefix:
-        prefix += "-"
-    name = prefix + "run-" + now
-    return "{}/{}/".format(root_logdir, name)
+def log_dir(root="", desc=""):
+    now = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    module = os.path.basename(__file__).split('.')[0]  # filename w/o extension
+    if len(desc) > 0:
+        desc = "-" + desc
+    name = module + desc + "-run-" + now
+    return "{}/{}/".format(root, name)
 
 
 if __name__ == "__main__":
@@ -51,15 +39,53 @@ if __name__ == "__main__":
     ##############
 
     # parameters
+    # log parameters
+    if len(sys.argv) > 1:
+        run_description = sys.argv[1]
+    else:
+        run_description = ""
+    params_logdir = log_dir(root="parameters", desc=run_description)
+    os.makedirs(params_logdir)
+
+    from collections import defaultdict
+    params = defaultdict(dict)
+    params
+
     # network
-    reset_graph()
+    # params['input']['height'] = 28
+    # params['input']['width'] = 28
+    # params['input']['channels'] = 1
+
     height = 28
     width = 28
     channels = 1
-    filters = 32
-    ksize = 3
-    stride = 1
-    n_hidden = 100  # for dense hidden layers
+
+    params['conv1']['filters'] = 32
+    params['conv1']['kernel_size'] = (1, 1)
+    params['conv1']['strides'] = (1, 1)
+    params['conv1']['padding'] = "SAME"
+    params['conv1']['name'] = "conv1"
+
+    params['conv2']['filters'] = 64
+    params['conv2']['kernel_size'] = (1, 1)
+    params['conv2']['strides'] = (2, 2)
+    params['conv2']['padding'] = "SAME"
+    params['conv2']['name'] = "conv2"
+
+    # params['pool3']['filters'] = params['conv2']['filters']
+    params['pool3']['ksize'] = (1, 2, 2, 1)
+    params['pool3']['strides'] = (1, 2, 2, 1)
+    params['pool3']['padding'] = "VALID"
+    params['pool3']['name'] = "pool3"
+
+    params['dens4']['units'] = 64
+    params['dens4']['name'] = 'dens4'
+    params['dens4_drop']['rate'] = 0.4
+
+    # filters = 4
+    # ksize = 3
+    # stride = 1
+    # n_hidden = 100  # for dense hidden layers
     n_outputs = 10
 
     # training
@@ -72,9 +98,17 @@ if __name__ == "__main__":
     batch_norm_momentum = 0.9
     dropout_rate = 0.0
 
-    X = tf.placeholder(shape=(None, height, width, channels), dtype=tf.float32)
-    y = tf.placeholder(tf.int64, shape=(None), name="y")
-    training = tf.placeholder_with_default(False, shape=(), name="training")
+    # save parameters
+    with open(os.path.join(params_logdir, 'params.json'), 'w') as f:
+        json.dump(params, f)
+
+    reset_graph()
+
+    with tf.name_scope("inputs"):
+        X = tf.placeholder(shape=(None, height, width, channels),
+                           dtype=tf.float32, name="X")
+        y = tf.placeholder(tf.int64, shape=(None), name="y")
+        training = tf.placeholder_with_default(False, shape=(), name="training")
 
     # neural network
     with tf.name_scope("CNN"):
@@ -92,27 +126,25 @@ if __name__ == "__main__":
             rate=dropout_rate,
             training=training)
 
-        conv1 = tf.layers.conv2d(
-            X, filters=filters, kernel_size=ksize, strides=stride,
-            padding="SAME",
-            activation=tf.nn.relu, name="conv1")
+        conv1 = tf.layers.conv2d(X, **params['conv1'], activation=tf.nn.elu)
         print("conv1 shape: {}".format(conv1.get_shape()))
-
-        conv2 = tf.layers.conv2d(
-            conv1, filters=filters, kernel_size=ksize, strides=stride,
-            padding="SAME",
-            activation=tf.nn.relu, name="conv2")
+        conv2 = tf.layers.conv2d(conv1, **params['conv2'], activation=tf.nn.elu)
         print("conv2 shape: {}".format(conv2.get_shape()))
+        # conv2_r = tf.reshape(conv2, [-1, 784 * filters])
 
-        conv2_r = tf.reshape(conv2, [-1, 784 * filters])
+        pool3 = tf.nn.max_pool(conv2, **params['pool3'])
+        print("pool3 shape: {}".format(pool3.get_shape()))
+        pool3_flat = tf.reshape(pool3,
+                                shape=(-1, 7 * 7 * params['conv2']['filters']))
+        print("pool3_flat shape: {}".format(pool3_flat.get_shape()))
 
-        hidden2 = my_dense_layer(conv2_r, n_hidden, name="hidden2")
-        hidden2_drop = my_dropout_layer(hidden2)
+        dens4 = my_dense_layer(pool3_flat, **params['dens4'])
+        dens4_drop = tf.layers.dropout(dens4, **params['dens4_drop'])
         # print("hidden2_drop.dtype: {}".format(hidden2_drop.dtype))
 
-        bn2 = tf.nn.relu(my_batch_norm_layer(hidden2_drop))
+        bn5 = tf.nn.relu(my_batch_norm_layer(dens4_drop))
         # issue 8535: needs float32, doesn't handle float16
-        logits_before_bn = my_dense_layer(bn2, n_outputs, name="outputs")
+        logits_before_bn = my_dense_layer(bn5, n_outputs, name="outputs")
         logits = my_batch_norm_layer(logits_before_bn)
         # not softmax for optimization
 
@@ -152,13 +184,10 @@ if __name__ == "__main__":
     y_valid = mnist.validation.labels
 
     # logging
-    if len(sys.argv) > 1:
-        run_description = sys.argv[1]
-    else:
-        run_description = ""
-        print("No log description entered")
-    logdir = log_dir("mnist_dnn_" + run_description)
-    file_writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
+    tf_logdir = log_dir(root="tf_logs", desc=run_description)
+    # tensorboard
+    file_writer = tf.summary.FileWriter(tf_logdir, tf.get_default_graph())
+    # save models
     checkpoint_path = "./tmp/my_deep_mnist_model.ckpt"
     checkpoint_epoch_path = checkpoint_path + ".epoch"
     final_model_path = "./my_deep_mnist_model"
