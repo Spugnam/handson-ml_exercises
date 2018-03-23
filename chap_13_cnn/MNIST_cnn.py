@@ -56,25 +56,25 @@ if __name__ == "__main__":
     # params['input']['width'] = 28
     # params['input']['channels'] = 1
 
-    height = 28
     width = 28
+    height = 28
     channels = 1
 
     params['conv1']['filters'] = 64
-    params['conv1']['kernel_size'] = (1, 1)
-    params['conv1']['strides'] = (1, 1)
+    params['conv1']['kernel_size'] = [1, 1]
+    params['conv1']['strides'] = [1, 1]
     params['conv1']['padding'] = "SAME"
     params['conv1']['name'] = "conv1"
 
     params['conv2']['filters'] = 128
-    params['conv2']['kernel_size'] = (1, 1)
-    params['conv2']['strides'] = (1, 1)
+    params['conv2']['kernel_size'] = [2, 2]
+    params['conv2']['strides'] = [1, 1]
     params['conv2']['padding'] = "SAME"
     params['conv2']['name'] = "conv2"
 
     # params['pool3']['filters'] = params['conv2']['filters']
-    params['pool3']['ksize'] = (1, 2, 2, 1)
-    params['pool3']['strides'] = (1, 2, 2, 1)
+    params['pool3']['ksize'] = [1, 2, 2, 1]
+    params['pool3']['strides'] = [1, 2, 2, 1]
     params['pool3']['padding'] = "VALID"
     params['pool3']['name'] = "pool3"
 
@@ -133,13 +133,22 @@ if __name__ == "__main__":
 
         pool3 = tf.nn.max_pool(conv2, **params['pool3'])
         # print("pool3 shape: {}".format(pool3.get_shape()))
-        pool3_flat = tf.reshape(pool3,
-                                shape=(-1, 7 * 7 * params['conv2']['filters']))
+
+        # calculate dimensions out of conv2
+        _w = int(width / (params['conv1']['strides'][0] *
+                          params['conv2']['strides'][0] *
+                          params['pool3']['strides'][1]))
+        _h = int(height / (params['conv1']['strides'][1] *
+                           params['conv2']['strides'][1] *
+                           params['pool3']['strides'][2]))
+
+        pool3_flat =\
+            tf.reshape(pool3, shape=(-1, _w * _h * params['conv2']['filters']))
         # print("pool3_flat shape: {}".format(pool3_flat.get_shape()))
 
         dens4 = my_dense_layer(pool3_flat, **params['dens4'])
         dens4_drop = tf.layers.dropout(dens4, **params['dens4_drop'])
-        # print("hidden2_drop.dtype: {}".format(hidden2_drop.dtype))
+        # print("dens4_drop.dtype: {}".format(dens4_drop.get_shape()))
 
         bn5 = tf.nn.relu(my_batch_norm_layer(dens4_drop))
         # issue 8535: needs float32, doesn't handle float16
