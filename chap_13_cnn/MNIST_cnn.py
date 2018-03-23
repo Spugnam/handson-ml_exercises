@@ -60,15 +60,15 @@ if __name__ == "__main__":
     width = 28
     channels = 1
 
-    params['conv1']['filters'] = 32
+    params['conv1']['filters'] = 64
     params['conv1']['kernel_size'] = (1, 1)
     params['conv1']['strides'] = (1, 1)
     params['conv1']['padding'] = "SAME"
     params['conv1']['name'] = "conv1"
 
-    params['conv2']['filters'] = 64
+    params['conv2']['filters'] = 128
     params['conv2']['kernel_size'] = (1, 1)
-    params['conv2']['strides'] = (2, 2)
+    params['conv2']['strides'] = (1, 1)
     params['conv2']['padding'] = "SAME"
     params['conv2']['name'] = "conv2"
 
@@ -78,9 +78,9 @@ if __name__ == "__main__":
     params['pool3']['padding'] = "VALID"
     params['pool3']['name'] = "pool3"
 
-    params['dens4']['units'] = 64
+    params['dens4']['units'] = 128
     params['dens4']['name'] = 'dens4'
-    params['dens4_drop']['rate'] = 0.4
+    params['dens4_drop']['rate'] = 0.1
 
     # filters = 4
     # ksize = 3
@@ -91,12 +91,12 @@ if __name__ == "__main__":
     # training
     learning_rate = 0.01
     n_epochs = 30
-    batch_size = 1024
+    batch_size = 512
     best_loss = np.infty
     epochs_without_progress = 0
     max_epochs_without_progress = 10
     batch_norm_momentum = 0.9
-    dropout_rate = 0.0
+    # dropout_rate = 0.0
 
     # save parameters
     with open(os.path.join(params_logdir, 'params.json'), 'w') as f:
@@ -121,22 +121,21 @@ if __name__ == "__main__":
         my_dense_layer = partial(
             tf.layers.dense,
             kernel_initializer=he_init)
-        my_dropout_layer = partial(
-            tf.layers.dropout,
-            rate=dropout_rate,
-            training=training)
+        # my_dropout_layer = partial(
+        #     tf.layers.dropout,
+        #     rate=dropout_rate,
+        #     training=training)
 
         conv1 = tf.layers.conv2d(X, **params['conv1'], activation=tf.nn.elu)
-        print("conv1 shape: {}".format(conv1.get_shape()))
+        # print("conv1 shape: {}".format(conv1.get_shape()))
         conv2 = tf.layers.conv2d(conv1, **params['conv2'], activation=tf.nn.elu)
-        print("conv2 shape: {}".format(conv2.get_shape()))
-        # conv2_r = tf.reshape(conv2, [-1, 784 * filters])
+        # print("conv2 shape: {}".format(conv2.get_shape()))
 
         pool3 = tf.nn.max_pool(conv2, **params['pool3'])
-        print("pool3 shape: {}".format(pool3.get_shape()))
+        # print("pool3 shape: {}".format(pool3.get_shape()))
         pool3_flat = tf.reshape(pool3,
                                 shape=(-1, 7 * 7 * params['conv2']['filters']))
-        print("pool3_flat shape: {}".format(pool3_flat.get_shape()))
+        # print("pool3_flat shape: {}".format(pool3_flat.get_shape()))
 
         dens4 = my_dense_layer(pool3_flat, **params['dens4'])
         dens4_drop = tf.layers.dropout(dens4, **params['dens4_drop'])
