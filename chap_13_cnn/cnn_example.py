@@ -32,9 +32,6 @@ for i in range(2):
     plt.axis("off")
     plt.show()
 
-##################
-# tf.nn.conv2d
-##################
 """
 Shapes
 images
@@ -58,9 +55,13 @@ Number of parameters in convolution layer l:
         + 1 for bias )
         * number of feature maps in layer l
 
-RAM usage per layer (excluding parameters)
-    (input_w / Stride_W) * (input_h / stride_h) * num feature map
+output dimension:
+    (input_w / stride_w) * (input_h / stride_h) * num feature map
 """
+
+##################
+# tf.nn.conv2d
+##################
 print("using tf.nn.conv2d...")
 
 # Create 2 filters
