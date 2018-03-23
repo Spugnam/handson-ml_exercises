@@ -33,6 +33,23 @@ def log_dir(root="", desc=""):
     return "{}/{}/".format(root, name)
 
 
+def get_model_params():
+    gvars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    return {gvar.op.name: value for gvar, value
+            in zip(gvars, tf.get_default_session().run(gvars))}
+
+
+def restore_model_params(model_params):
+    gvar_names = list(model_params.keys())
+    assign_ops = {gvar_name: tf.get_default_graph().get_operation_by_name(
+        gvar_name + "/Assign") for gvar_name in gvar_names}
+    init_values = {gvar_name: assign_op.inputs[1] for gvar_name, assign_op
+                   in assign_ops.items()}
+    feed_dict = {init_values[gvar_name]: model_params[gvar_name]
+                 for gvar_name in gvar_names}
+    tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
+
+
 if __name__ == "__main__":
     ##############
     # Construction
@@ -60,15 +77,15 @@ if __name__ == "__main__":
     height = 28
     channels = 1
 
-    params['conv1']['filters'] = 64
+    params['conv1']['filters'] = 32
     params['conv1']['kernel_size'] = [1, 1]
     params['conv1']['strides'] = [1, 1]
     params['conv1']['padding'] = "SAME"
     params['conv1']['name'] = "conv1"
 
-    params['conv2']['filters'] = 128
-    params['conv2']['kernel_size'] = [2, 2]
-    params['conv2']['strides'] = [1, 1]
+    params['conv2']['filters'] = 64
+    params['conv2']['kernel_size'] = [1, 1]
+    params['conv2']['strides'] = [2, 2]
     params['conv2']['padding'] = "SAME"
     params['conv2']['name'] = "conv2"
 
@@ -80,7 +97,7 @@ if __name__ == "__main__":
 
     params['dens4']['units'] = 128
     params['dens4']['name'] = 'dens4'
-    params['dens4_drop']['rate'] = 0.1
+    params['dens4_drop']['rate'] = 0.
 
     # filters = 4
     # ksize = 3
@@ -89,9 +106,9 @@ if __name__ == "__main__":
     n_outputs = 10
 
     # training
-    learning_rate = 0.01
+    params['learning_rate'] = 0.01
     n_epochs = 30
-    batch_size = 512
+    params['batch_size'] = 2048
     best_loss = np.infty
     epochs_without_progress = 0
     max_epochs_without_progress = 10
@@ -166,7 +183,7 @@ if __name__ == "__main__":
 
     # optimizer
     with tf.name_scope("train"):
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate=params['learning_rate'])
         training_op = optimizer.minimize(loss)
 
     # evaluation metric
@@ -216,40 +233,45 @@ if __name__ == "__main__":
             sess.run(init)
 
         for epoch in range(start_epoch, n_epochs):
-            for iteration in range(len(X_train) // batch_size):
+            for iteration in range(len(X_train) // params['batch_size']):
                 X_batch, y_batch = fetch_batch(X_train, y_train,
-                                               batch_size)
+                                               params['batch_size'])
                 sess.run([training_op, extra_update_ops],
                          feed_dict={X: X_batch, y: y_batch})
             # metrics
             acc_train = accuracy.eval(
-                feed_dict={X: X_train.reshape(-1, height, width, 1),
-                           y: y_train})
-            acc_val = accuracy.eval(
-                feed_dict={X: X_test.reshape(-1, height, width, 1),
-                           y: y_test})
-            print(epoch, "Train accuracy: {}, Test accuracy: {}".format(
-                acc_train, acc_val))
+                feed_dict={X: X_train.reshape(-1, height, width, 1), y: y_train})
+            acc_test = accuracy.eval(
+                feed_dict={X: X_test.reshape(-1, height, width, 1), y: y_test})
+            print(epoch, "Train acc: {}, Test acc: {}".format(acc_train, acc_test))
+
             accuracy_val, loss_val, accuracy_summary_str, loss_summary_str =\
                 sess.run([accuracy, loss, accuracy_summary, loss_summary],
                          feed_dict={X: X_valid.reshape(-1, height, width, 1),
                                     y: y_valid})
-            file_writer.add_summary(accuracy_summary_str, epoch)
-            file_writer.add_summary(loss_summary_str, epoch)
             print("Epoch:", epoch,
                   "\tValidation accuracy: {:.3f}%".format(accuracy_val * 100),
                   "\tValidation Loss: {:.5f}".format(loss_val))
+            file_writer.add_summary(accuracy_summary_str, epoch)
+            file_writer.add_summary(loss_summary_str, epoch)
             saver.save(sess, checkpoint_path)
             with open(checkpoint_epoch_path, "wb") as f:
                 f.write(b"%d" % (epoch + 1))
+
             if loss_val < best_loss:
-                saver.save(sess, final_model_path)
+                # saver.save(sess, final_model_path)
                 best_loss = loss_val
+                best_model_params = get_model_params()  # cache best params
             else:
                 epochs_without_progress += 1
                 if epochs_without_progress > max_epochs_without_progress:
                     print("Early stopping")
                     break
+
+        # restore parameters from best run
+        if best_model_params:
+            restore_model_params(best_model_params)
+        saver.save(sess, final_model_path)
         os.remove(checkpoint_epoch_path)  # remove intermediate run
 
     # restore saved model
