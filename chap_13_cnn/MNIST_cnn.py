@@ -181,14 +181,18 @@ if __name__ == "__main__":
                 sess.run([training_op, extra_update_ops],
                          feed_dict={X: X_batch, y: y_batch})
             # metrics
-            acc_train = accuracy.eval(feed_dict={X: X_train,
-                                                 y: y_train})
-            acc_val = accuracy.eval(feed_dict={X: X_test, y: y_test})
+            acc_train = accuracy.eval(
+                feed_dict={X: X_train.reshape(-1, height, width, 1),
+                           y: y_train})
+            acc_val = accuracy.eval(
+                feed_dict={X: X_test.reshape(-1, height, width, 1),
+                           y: y_test})
             print(epoch, "Train accuracy: {}, Test accuracy: {}".format(
                 acc_train, acc_val))
             accuracy_val, loss_val, accuracy_summary_str, loss_summary_str =\
                 sess.run([accuracy, loss, accuracy_summary, loss_summary],
-                         feed_dict={X: X_valid, y: y_valid})
+                         feed_dict={X: X_valid.reshape(-1, height, width, 1),
+                                    y: y_valid})
             file_writer.add_summary(accuracy_summary_str, epoch)
             file_writer.add_summary(loss_summary_str, epoch)
             print("Epoch:", epoch,
