@@ -56,28 +56,30 @@ if __name__ == "__main__":
     height = 28
     width = 28
     channels = 1
-    filters = 100
+    filters = 32
+    ksize = 3
+    stride = 1
     n_hidden = 100  # for dense hidden layers
     n_outputs = 10
 
     # training
     learning_rate = 0.01
     n_epochs = 30
-    batch_size = 2048
+    batch_size = 1024
     best_loss = np.infty
     epochs_without_progress = 0
     max_epochs_without_progress = 10
     batch_norm_momentum = 0.9
-    dropout_rate = 0.5
+    dropout_rate = 0.0
 
     X = tf.placeholder(shape=(None, height, width, channels), dtype=tf.float32)
     y = tf.placeholder(tf.int64, shape=(None), name="y")
     training = tf.placeholder_with_default(False, shape=(), name="training")
 
     # neural network
-    layers = []
     with tf.name_scope("CNN"):
-        he_init = tf.contrib.layers.variance_scaling_initializer()
+        he_init = tf.contrib.layers.\
+            variance_scaling_initializer(dtype=tf.float32)
         my_batch_norm_layer = partial(
             tf.layers.batch_normalization,
             training=training,
@@ -90,20 +92,26 @@ if __name__ == "__main__":
             rate=dropout_rate,
             training=training)
 
-        # creates 2 7*7 feature maps with 2*2 strides
         conv1 = tf.layers.conv2d(
-            X, filters=filters, kernel_size=7, strides=(1, 1), padding="SAME",
+            X, filters=filters, kernel_size=ksize, strides=stride,
+            padding="SAME",
             activation=tf.nn.relu, name="conv1")
-        # print("conv1 format: {}".format(conv1.get_shape()))
+        print("conv1 shape: {}".format(conv1.get_shape()))
+
         conv2 = tf.layers.conv2d(
-            conv1, filters=filters, kernel_size=7, strides=(1, 1), padding="SAME",
+            conv1, filters=filters, kernel_size=ksize, strides=stride,
+            padding="SAME",
             activation=tf.nn.relu, name="conv2")
-        # print("conv2 format: {}".format(conv2.get_shape()))
+        print("conv2 shape: {}".format(conv2.get_shape()))
+
         conv2_r = tf.reshape(conv2, [-1, 784 * filters])
-        hidden2 = my_dense_layer(
-            conv2_r, n_hidden, name="hidden2")
+
+        hidden2 = my_dense_layer(conv2_r, n_hidden, name="hidden2")
         hidden2_drop = my_dropout_layer(hidden2)
-        bn2 = tf.nn.elu(my_batch_norm_layer(hidden2_drop))
+        # print("hidden2_drop.dtype: {}".format(hidden2_drop.dtype))
+
+        bn2 = tf.nn.relu(my_batch_norm_layer(hidden2_drop))
+        # issue 8535: needs float32, doesn't handle float16
         logits_before_bn = my_dense_layer(bn2, n_outputs, name="outputs")
         logits = my_batch_norm_layer(logits_before_bn)
         # not softmax for optimization
