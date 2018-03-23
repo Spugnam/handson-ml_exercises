@@ -56,6 +56,7 @@ if __name__ == "__main__":
     height = 28
     width = 28
     channels = 1
+    filters = 100
     n_hidden = 100  # for dense hidden layers
     n_outputs = 10
 
@@ -91,16 +92,14 @@ if __name__ == "__main__":
 
         # creates 2 7*7 feature maps with 2*2 strides
         conv1 = tf.layers.conv2d(
-            X, filters=100, kernel_size=7, strides=(1, 1), padding="SAME",
+            X, filters=filters, kernel_size=7, strides=(1, 1), padding="SAME",
             activation=tf.nn.relu, name="conv1")
-        print("conv1 format: {}".format(conv1.get_shape()))
+        # print("conv1 format: {}".format(conv1.get_shape()))
         conv2 = tf.layers.conv2d(
-            conv1, filters=100, kernel_size=7, strides=(1, 1), padding="SAME",
+            conv1, filters=filters, kernel_size=7, strides=(1, 1), padding="SAME",
             activation=tf.nn.relu, name="conv2")
-        print("conv2 format: {}".format(conv2.get_shape()))
-
-        # conv2 output: height * width * channels * 10 * 10
-        conv2_r = tf.reshape(conv2, [-1, 784 * 10])
+        # print("conv2 format: {}".format(conv2.get_shape()))
+        conv2_r = tf.reshape(conv2, [-1, 784 * filters])
         hidden2 = my_dense_layer(
             conv2_r, n_hidden, name="hidden2")
         hidden2_drop = my_dropout_layer(hidden2)
