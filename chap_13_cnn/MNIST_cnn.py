@@ -106,9 +106,9 @@ if __name__ == "__main__":
     n_outputs = 10
 
     # training
+    params['batch_size'] = 2048
     params['learning_rate'] = 0.01
     n_epochs = 30
-    params['batch_size'] = 2048
     best_loss = np.infty
     epochs_without_progress = 0
     max_epochs_without_progress = 10
@@ -232,6 +232,7 @@ if __name__ == "__main__":
             start_epoch = 0
             sess.run(init)
 
+        t0 = time.time()
         for epoch in range(start_epoch, n_epochs):
             for iteration in range(len(X_train) // params['batch_size']):
                 X_batch, y_batch = fetch_batch(X_train, y_train,
@@ -267,6 +268,11 @@ if __name__ == "__main__":
                 if epochs_without_progress > max_epochs_without_progress:
                     print("Early stopping")
                     break
+            # epoch duration
+            t1 = time.time()
+            print("Epoch duration: ",
+                  time.strftime("%H:%M:%S", time.gmtime(t1-t0)))
+            t0 = t1  # restart the clock
 
         # restore parameters from best run
         if best_model_params:
