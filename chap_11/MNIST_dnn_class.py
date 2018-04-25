@@ -168,8 +168,8 @@ class DNNClassifier(BaseEstimator, ClassifierMixin):
         else:
             run_description = ""
             print("No log description entered")
-        now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        logdir = "tf_logs/mnist_dnn-" + run_description + "run-" + now
+            now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+            logdir = "tf_logs/mnist_dnn-" + run_description + "run-" + now
         # tensorboard logs
         file_writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
 

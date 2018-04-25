@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 import csv
 import re
-import itertools as it  # noqa
+import itertools as it
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import requests
@@ -18,6 +18,9 @@ import tensorflow as tf
 from tensorflow.contrib.slim.nets import inception
 import tensorflow.contrib.slim as slim
 
+"""Check inception_v4 instead for the right way to feed jpg pictures
+using urllib and tf.image.decode_jpeg
+"""
 
 def reset_graph(seed=42):
     tf.reset_default_graph()
@@ -48,6 +51,19 @@ with slim.arg_scope(inception.inception_v3_arg_scope()):
 predictions = end_points["Predictions"]
 saver = tf.train.Saver()
 
+# inspect model loaded
+# Print name and shape of each tensor.
+print("Layers")
+for k, v in end_points.items():
+    print('name = {}, shape = {}'.format(v.name, v.get_shape()))
+
+# Print name and shape of parameter nodes  (values not yet initialized)
+# print("\n")
+# print("Parameters")
+# for v in slim.get_model_variables():
+#     print('name = {}, shape = {}'.format(v.name, v.get_shape()))
+
+# prediction tests
 # with tf.Session() as sess:
 #     saver.restore(sess, INCEPTION_V3_CHECKPOINT_PATH)
 #     predictions_val = predictions.eval(feed_dict={X: X_test})
@@ -69,16 +85,22 @@ width = 299
 height = 299
 channels = 3
 
-image_filepath = "/Users/Quentin/Documents/Projects/popsy/data/data-with-images-000000000000.csv"
+image_filepath = "/Users/Quentin/Documents/Projects/popsy/data/raw_urls/data-with-images-000000000000.csv"
 
 f = csv.DictReader(open(image_filepath, 'r'))
 # odict_keys(['category_name', 'title', 'country', 'image'])
 
-# test
+for row_dict in it.islice(f, 0, 30):
+    print(row_dict['title'], row_dict['country'])
 
+# OrderedDict([('category_name', '559150b3531b3b92438b4574'), ('title', 'Ap Nascente na Pelinca com Duas Vagas na Garagem'), ('country', 'BR'), ('image', 'https://lh3.goo')])
+# OrderedDict([('category_name', '55906905531b3b93438b456e'), ('title', 'DVD docteur who saison 5.'), ('country', 'FR'), ('image', 'http://lh3.goo')])
+
+
+# predictions on csv file of image urls
 with tf.Session() as sess:
     saver.restore(sess, INCEPTION_V3_CHECKPOINT_PATH)
-    for row_dict in it.islice(f, 10000, 10010):
+    for row_dict in it.islice(f, 26, 28):
         url = row_dict['image']
         data = requests.get(url).content
         im = Image.open(BytesIO(data))
